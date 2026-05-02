@@ -1,0 +1,83 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: erp-postgres
+    environment:
+      POSTGRES_USER: erpuser
+      POSTGRES_PASSWORD: erppassword
+      POSTGRES_DB: erpdatabase
+    ports:
+      - "5432:5432"
+    volumes:
+      # Volume persists data even after container removal/rebuild
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U erpuser -d erpdatabase"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Node.js Backend
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: erp-backend
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: erpuser
+      DB_PASSWORD: erppassword
+      DB_NAME: erpdatabase
+      JWT_SECRET: ${JWT_SECRET:-change-this-in-production}
+      PORT: 5000
+    ports:
+      - "5000:5000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # React Frontend (nginx, production build)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: erp-frontend
+    ports:
+      - "3000:80"   # host:3000 → container:80, host nginx sits on 80
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  # Backup job — runs pg_dump daily at 2am, uploads to S3/B2
+  backup:
+    build:
+      context: ./backup
+      dockerfile: Dockerfile
+    container_name: erp-backup
+    environment:
+      DB_HOST: postgres
+      DB_USER: ${DB_USER:-erpuser}
+      DB_PASSWORD: ${DB_PASSWORD:-erppassword}
+      DB_NAME: ${DB_NAME:-erpdatabase}
+      S3_BUCKET: ${S3_BUCKET:-}
+      S3_ENDPOINT_URL: ${S3_ENDPOINT_URL:-}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+    volumes:
+      - backup_data:/backups
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+  backup_data:
+    driver: local

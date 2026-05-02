@@ -1,0 +1,29 @@
+# Usage: docker compose -f docker-compose.yml -f docker-compose.dev.yml up backend
+# Or run backend locally: DB_HOST=YOUR_VPS_IP node server.js
+#
+# This override points the backend to your VPS postgres instead of local.
+# Make sure port 5432 is open on VPS firewall for your dev IP only.
+
+version: '3.8'
+
+services:
+  backend:
+    environment:
+      DB_HOST: ${DEV_DB_HOST}   # set this to your VPS IP in .env
+      DB_PORT: 5432
+      DB_USER: ${DB_USER:-erpuser}
+      DB_PASSWORD: ${DB_PASSWORD:-erppassword}
+      DB_NAME: ${DB_NAME:-erpdatabase}
+    # Mount source for live reload in dev
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    command: ["npx", "nodemon", "server.js"]
+
+  # Don't run local postgres in dev mode — using VPS one
+  postgres:
+    profiles: ["local-only"]
+
+  # Don't run backup in dev
+  backup:
+    profiles: ["local-only"]
