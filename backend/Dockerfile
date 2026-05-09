@@ -14,10 +14,12 @@ FROM node:18-alpine
 
 WORKDIR /app
 
+ENV NODE_ENV=production
+
 # Install dependencies first (separate layer so Docker cache isn't busted
 # on every code change — only re-runs when package.json changes)
 COPY package*.json ./
-RUN npm install
+RUN npm install --production
 
 # Copy application source
 COPY . .
