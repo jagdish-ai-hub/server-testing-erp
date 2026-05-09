@@ -1,0 +1,44 @@
+services:
+  - type: web
+    name: erp-backend
+    runtime: node
+    buildCommand: cd backend && npm install
+    startCommand: cd backend && node server.js
+    envVars:
+      - key: DB_HOST
+        value: postgres.render.internal
+      - key: DB_PORT
+        value: "5432"
+      - key: DB_USER
+        fromDatabase:
+          name: postgres
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: postgres
+          property: password
+      - key: DB_NAME
+        fromDatabase:
+          name: postgres
+          property: dbname
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        sync: false
+      - key: PORT
+        value: "10000"
+
+  - type: web
+    name: erp-frontend
+    runtime: static
+    buildCommand: cd frontend && npm install && npm run build
+    staticPublishPath: frontend/build
+    envVars:
+      - key: REACT_APP_API_URL
+        value: https://erp-backend.onrender.com
+
+databases:
+  - name: postgres
+    engine: postgres
+    version: 15
+    plan: free
